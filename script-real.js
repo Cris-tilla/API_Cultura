@@ -91,6 +91,7 @@ const deselectAllSources = document.getElementById('deselectAllSources');
 // Verificar se está rodando com servidor ou não
 const IS_SERVER_MODE = window.location.protocol !== 'file:';
 const API_BASE = IS_SERVER_MODE ? '' : 'http://localhost:3000';
+const API_ROBUSTA = 'http://localhost:3000'; // Servidor robusto
 
 // Inicialização
 document.addEventListener('DOMContentLoaded', () => {
@@ -221,8 +222,34 @@ function setupEventListeners() {
 // Buscar em uma fonte específica
 async function searchSource(source, searchTerm) {
     try {
-        // Se tiver servidor rodando, usar busca real
+        // Se tiver servidor rodando, usar busca robusta
         if (IS_SERVER_MODE || window.location.hostname === 'localhost') {
+            try {
+                console.log(`🔍 Tentando servidor robusto: ${source.name}`);
+                
+                const response = await fetch(`${API_ROBUSTA}/api/search`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        sources: [source],
+                        searchTerm: searchTerm
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log(`✅ Servidor robusto: ${data.results.length} resultados de ${source.name}`);
+                    return data.results || [];
+                } else {
+                    console.log(`⚠️ Servidor robusto falhou (${response.status}), tentando servidor padrão`);
+                }
+            } catch (error) {
+                console.log(`⚠️ Erro no servidor robusto: ${error.message}, tentando servidor padrão`);
+            }
+            
+            // Fallback para servidor padrão
             try {
                 const response = await fetch(`${API_BASE}/api/search`, {
                     method: 'POST',
@@ -237,10 +264,11 @@ async function searchSource(source, searchTerm) {
                 
                 if (response.ok) {
                     const data = await response.json();
+                    console.log(`✅ Servidor padrão: ${data.results.length} resultados de ${source.name}`);
                     return data.results || [];
                 }
             } catch (error) {
-                console.log('Servidor não disponível, usando busca alternativa');
+                console.log('Servidor padrão não disponível, usando busca alternativa');
             }
         }
         
